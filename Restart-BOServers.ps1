@@ -1,4 +1,11 @@
 try {
+    write-host $env:STAGES
+    write-host $env:APPDPASSWORD
+    write-host $env:BOADMIN
+    write-host $env:BO_ADMIN_STAGE
+    write-host $env:BO_ADMIN_DEV
+    Write-Host $env:BO_ADMIN_SANDBOX
+
     # Replace in Azure DevOps
     $SelectedStages = $env:STAGES.Split(',')
 
