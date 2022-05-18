@@ -348,7 +348,7 @@ try {
                         }
                 
                         [void]Log([string]$From, [string]$Level, [string]$Message) {
-                            if (!$(Test-Path )){
+                            if (!$(Test-Path $([BOInstance]::LogFolder))){
                                 New-Item -Path $([BOInstance]::LogFolder) -ItemType Directory
                             }
                             "[$(Get-Date)][$From][$level] $Message" | Add-Content "$([BOInstance]::LogFolder)$([BOInstance]::LogName)"
