@@ -154,6 +154,7 @@ try {
                             [string]$Password,
                             [string]$Authentication
                         ) {
+                            [BOInstance]::CleanLogs()
                             $LogLoc = "Constructor"
                             $this.LogDebug($LogLoc, "Instanciated using 4 parameter constructor")
                             $this.LogDebug($LogLoc, "Parameter `"ExeLocation`" is `"$ExeLocation`"")
@@ -172,6 +173,7 @@ try {
                         BOInstance(
                             [string]$Password
                         ) {
+                            [BOInstance]::CleanLogs()
                             $LogLoc = "Constructor"
                             $this.LogDebug($LogLoc, "Instanciated using 1 parameter constructor")
                             $this.LogDebug($LogLoc, "Parameter `"Password`" is not disclosed")
@@ -349,6 +351,9 @@ try {
                         }
                 
                         [void]Log([string]$From, [string]$Level, [string]$Message) {
+                            if (!$(Test-Path [BOInstance]::LogFolder)){
+                                New-Item -Path [BOInstance]::LogFolder -ItemType Directory
+                            }
                             "[$(Get-Date)][$From][$level] $Message" | Add-Content "$([BOInstance]::LogFolder)$([BOInstance]::LogName)"
                 
                         }
