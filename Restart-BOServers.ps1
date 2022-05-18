@@ -1,6 +1,6 @@
 try {
     # Replace in Azure DevOps
-    $SelectedStages = $(stages).Split(',')
+    $SelectedStages = $env:STAGES.Split(',')
 
     # Which serers are in which stage
     $Prod = @("W17003", "W17004", "W17005", "W17006")
@@ -30,7 +30,7 @@ try {
         }
     }
 
-    $AppdPassword = $(appd-password)
+    $AppdPassword = $env:APPDPASSWORD
 
     # List of which computers failed to start
     $FailedRestarts = $()
@@ -38,22 +38,22 @@ try {
         # Get credential for the bo-admin account for the lane the computer is on
         switch ("prod", "stage", "dev", "sandbox" | Where-Object { $Stages[$_] -contains $Computer }) {
             "prod" {
-                $pswd = ConvertTo-SecureString -String $(boadmin) -AsPlaintext -Force
+                $pswd = ConvertTo-SecureString -String $env:BOADMIN -AsPlaintext -Force
                 $cred = [System.Management.Automation.PSCredential]::new("boadmin", $pswd)
                 break
             }
             "stage" {
-                $pswd = ConvertTo-SecureString -String $(bo-admin-stage) -AsPlaintext -Force
+                $pswd = ConvertTo-SecureString -String $env:BO_ADMIN_STAGE -AsPlaintext -Force
                 $cred = [System.Management.Automation.PSCredential]::new("bo-admin-stage", $pswd)
                 break
             }
             "dev" {
-                $pswd = ConvertTo-SecureString -String $(bo-admin-dev) -AsPlaintext -Force
+                $pswd = ConvertTo-SecureString -String $env:BO_ADMIN_DEV -AsPlaintext -Force
                 $cred = [System.Management.Automation.PSCredential]::new("bo-admin-dev", $pswd)
                 break
             }
             "sandbox" {
-                $pswd = ConvertTo-SecureString -String $(ad-admin-test) -AsPlaintext -Force
+                $pswd = ConvertTo-SecureString -String $env:BO_ADMIN_TEST -AsPlaintext -Force
                 $cred = [System.Management.Automation.PSCredential]::new("bo-admin-test", $pswd)
                 break
             }
