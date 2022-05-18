@@ -1,7 +1,8 @@
 try {
-    write-host $env:BO_ADMIN_TEST.gettype()
     # Replace in Azure DevOps
     $SelectedStages = $env:STAGES.Split(',')
+
+    Write-Host "$($env:BO_ADMIN_TEST -eq "H7h96jbgLvh8og6TpM8kzGwyr!xVan4j")"
 
     # Which serers are in which stage
     $Prod = @("W17003", "W17004", "W17005", "W17006")
@@ -31,7 +32,6 @@ try {
         }
     }
 
-    Write-Host (Get-Item WSMan:\\localhost\client\TrustedHosts).Value
 
     $AppdPassword = $env:APPDPASSWORD
 
