@@ -60,7 +60,8 @@ try {
                 break
             }
             "sandbox" {
-                $pswd = ConvertTo-SecureString -String $env:BO_ADMIN_TEST -AsPlaintext -Force
+                write-host "In sandbox cred maker"
+                $pswd = ConvertTo-SecureString -String "$($env:BO_ADMIN_TEST)" -AsPlaintext -Force
                 $cred = [System.Management.Automation.PSCredential]::new("bo-admin-test", $pswd)
                 break
             }
