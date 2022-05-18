@@ -30,7 +30,6 @@ try {
         }
     }
 
-
     $AppdPassword = $env:APPDPASSWORD
 
     # List of which computers failed to start
@@ -59,8 +58,6 @@ try {
                 break
             }
         }
-
-        Write-Host $cred.GetType()
 
         # Controls whether to begin restart process 
         $NeedsRestart = $true
@@ -351,8 +348,8 @@ try {
                         }
                 
                         [void]Log([string]$From, [string]$Level, [string]$Message) {
-                            if (!$(Test-Path [BOInstance]::LogFolder)){
-                                New-Item -Path [BOInstance]::LogFolder -ItemType Directory
+                            if (!$(Test-Path )){
+                                New-Item -Path $([BOInstance]::LogFolder) -ItemType Directory
                             }
                             "[$(Get-Date)][$From][$level] $Message" | Add-Content "$([BOInstance]::LogFolder)$([BOInstance]::LogName)"
                 
@@ -428,7 +425,7 @@ try {
                     $Attempts = 0
                     $WinServices = Get-BOServices
                     Write-Host "[$(Get-Date)] Starting Windows services on server $Computer"
-                    while ($Attempts -lt 6 -and ($WinServices | Where-Object { $_.Status -ne "Running" }).Count -gt 0) {
+                    while ($Attempts -lt 8 -and ($WinServices | Where-Object { $_.Status -ne "Running" }).Count -gt 0) {
                         # Only attempt to start services that aren't running or will start
                         foreach ($WinService in ($WinServices | Where-Object { $_.Status -notin "Running", "StartPending" })) {
                             Start-BOServices -Services $WinService.DisplayName
