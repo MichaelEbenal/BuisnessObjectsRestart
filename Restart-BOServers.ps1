@@ -4,7 +4,7 @@ try {
     write-host $env:BOADMIN
     write-host $env:BO_ADMIN_STAGE
     write-host $env:BO_ADMIN_DEV
-    Write-Host $env:BO_ADMIN_SANDBOX
+    Write-Host "$(($env:BO_ADMIN_TEST).substring(0, $env:BO_ADMIN_TEST.length - 1))"
 
     # Replace in Azure DevOps
     $SelectedStages = $env:STAGES.Split(',')
