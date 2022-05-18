@@ -239,7 +239,7 @@ try {
                             $Service = $this.StartService($Service)
                             $FailCount = 0
                             while (-not $Service.State -like "Running*" -and $FailCount -lt 5) {
-                                Start-Sleep -Seconds 3
+                                Start-Sleep -Seconds 5
                                 $Service = $this.UpdateServices($Service)
                                 $FailCount++
                                 if ($FailCount -lt 5) {
@@ -253,7 +253,7 @@ try {
                             $FailCount = 0
                             while ($Service.Status -ne "Enabled" -and $FailCount -lt 5) {
                                 $Service = $this.EnableService($Service)
-                                Start-Sleep -Seconds 3
+                                Start-Sleep -Seconds 5
                                 $FailCount++
                                 if ($FailCount -lt 5) {
                                     $this.LogError($LogLoc, "Service `"$($Service.CommandName)`" has not changed to enabled status after $($FailCount * 5) seconds")
