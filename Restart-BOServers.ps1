@@ -1,6 +1,6 @@
 try {
     # Replace in Azure DevOps
-    $SelectedStages = "sandbox".Split(',')
+    $SelectedStages = $(stages).Split(',')
 
     # Which serers are in which stage
     $Prod = @("W17003", "W17004", "W17005", "W17006")
@@ -30,7 +30,7 @@ try {
         }
     }
 
-    $AppdPassword = "YpAm9VfhyUe7qcWC_Q6a"
+    $AppdPassword = $(appd-password)
 
     # List of which computers failed to start
     $FailedRestarts = $()
@@ -38,22 +38,22 @@ try {
         # Get credential for the bo-admin account for the lane the computer is on
         switch ("prod", "stage", "dev", "sandbox" | Where-Object { $Stages[$_] -contains $Computer }) {
             "prod" {
-                $pswd = ConvertTo-SecureString -String "H7h96jbgLvh8og6TpM8kzGwyr!xVan4j" -AsPlaintext -Force
-                $cred = [System.Management.Automation.PSCredential]::new("bo-admin-prod", $pswd)
+                $pswd = ConvertTo-SecureString -String $(boadmin) -AsPlaintext -Force
+                $cred = [System.Management.Automation.PSCredential]::new("boadmin", $pswd)
                 break
             }
             "stage" {
-                $pswd = ConvertTo-SecureString -String "H7h96jbgLvh8og6TpM8kzGwyr!xVan4j" -AsPlaintext -Force
+                $pswd = ConvertTo-SecureString -String $(bo-admin-stage) -AsPlaintext -Force
                 $cred = [System.Management.Automation.PSCredential]::new("bo-admin-stage", $pswd)
                 break
             }
             "dev" {
-                $pswd = ConvertTo-SecureString -String "H7h96jbgLvh8og6TpM8kzGwyr!xVan4j" -AsPlaintext -Force
+                $pswd = ConvertTo-SecureString -String $(bo-admin-dev) -AsPlaintext -Force
                 $cred = [System.Management.Automation.PSCredential]::new("bo-admin-dev", $pswd)
                 break
             }
             "sandbox" {
-                $pswd = ConvertTo-SecureString -String "H7h96jbgLvh8og6TpM8kzGwyr!xVan4j" -AsPlaintext -Force
+                $pswd = ConvertTo-SecureString -String $(ad-admin-test) -AsPlaintext -Force
                 $cred = [System.Management.Automation.PSCredential]::new("bo-admin-test", $pswd)
                 break
             }
@@ -63,7 +63,7 @@ try {
         $NeedsRestart = $true
         # Don't restart more than 5 times
         $NumRestarts = 0
-        while ($NeedsRestart -and $NumRestarts -lt 5) {
+        while ($NeedsRestart -and $NumRestarts -lt 3) {
             Write-Host "[$(Get-Date)] Beginning restart attempt $($NumRestarts + 1) for server $Computer"
 
             Invoke-Command -ComputerName $Computer -Credential $Cred -SessionOption (New-PSSessionOption -IncludePortInSPN) {
@@ -90,7 +90,7 @@ try {
                     catch {
                         if ($_ -match "^\[.{0,6}\] Connecting to remote server .{0,6} failed with the following error message : .*$") {
                             $Attempts++
-                            Write-Host "[$(Get-Date)] Failed attempts to start PSSession to server ${$Computer}: $Attempts"
+                            Write-Host "[$(Get-Date)] Failed attempts to start PSSession to server $($Computer): $Attempts"
                             # Wait an increasing amount of time between connects
                             Start-Sleep -Seconds (($Attempts) * 5)
                             continue
@@ -102,16 +102,11 @@ try {
                 }
             }
             catch {
-                Write-Host "[$(Get-Date)] Unhandled error occured while starting PSSession to server ${$Computer}: $_"
+                Write-Host "[$(Get-Date)] Unhandled error occured while starting PSSession to server $($Computer): $_"
                 continue
             }
-            $textBlock = @'
 
-        
-'@
-            $mainBlock = [scriptblock]::create($textBlock)
-        
-            $needsRestart = invoke-command -Session $Session -ScriptBlock {
+            $NeedsRestart = invoke-command -Session $Session -ScriptBlock {
                 param($Computer, $AppdPassword)
                 try {
                     # Begin supporting classes and functions
@@ -425,7 +420,7 @@ try {
                     $Attempts = 0
                     $WinServices = Get-BOServices
                     Write-Host "[$(Get-Date)] Starting Windows services on server $Computer"
-                    while ($Attempts -lt 5 -and ($WinServices | Where-Object { $_.Status -ne "Running" }).Count -gt 0) {
+                    while ($Attempts -lt 6 -and ($WinServices | Where-Object { $_.Status -ne "Running" }).Count -gt 0) {
                         # Only attempt to start services that aren't running or will start
                         foreach ($WinService in ($WinServices | Where-Object { $_.Status -notin "Running", "StartPending" })) {
                             Start-BOServices -Services $WinService.DisplayName
@@ -439,13 +434,13 @@ try {
 
                         $WinServices = Get-BOServices
                         $Attempts++
-                        Write-Host "[$(Get-Date)] Failed attempts to start Windows services on server ${$Computer}: $Attempts"
+                        Write-Host "[$(Get-Date)] Failed attempts to start Windows services on server $($Computer): $Attempts"
                     }
 
                     # Determine if any services aren't running
                     $BadServices = $WinServices | Where-Object { $_.Status -ne "Running" }
                     if ($BadServices.Count -gt 0) {
-                        Write-Host "[$(Get-Date)] One or more Windows services on failed to start on server ${$Computer}: $($BadServices.DisplayName -join ", ")"
+                        Write-Host "[$(Get-Date)] One or more Windows services on failed to start on server $($Computer): $($BadServices.DisplayName -join ", ")"
                         return $true
                     }
                     else {
@@ -455,7 +450,7 @@ try {
                     # Instanciate and connect to the BO app to verify connection info and connectability
                     Write-Host "[$(Get-Date)] Starting connection to BO app on server $Computer"
                     $Attempts = 0
-                    while ($attempts -lt 5) {
+                    while ($attempts -lt 6) {
                         try {
                             $BOServer = [BOInstance]::new($AppdPassword)
                             # Connection successful, don't try to connect again
@@ -464,7 +459,7 @@ try {
                         catch {
                             if ($_ -like "Unable to logon to CMS: Reason: Unable to log on: Could not connect to server*") {
                                 $Attempts++
-                                Write-Host "[$(Get-Date)] Failed attempts to connect to BO app on server ${$Computer}: $Attempts"
+                                Write-Host "[$(Get-Date)] Failed attempts to connect to BO app on server $($Computer): $Attempts"
                             
                                 # Wait an increasing amount of time before trying again
                                 Start-Sleep -Seconds ($Attempts * 5)
@@ -477,7 +472,7 @@ try {
                         }   
                     }
 
-                    if ($Attempts -eq 5) {
+                    if ($Attempts -eq 6) {
                         # Couldn't connect
                         Write-Host "[$(Get-Date)] Failed to connect to BO app on server $Computer"
                         return $true
@@ -498,7 +493,7 @@ try {
                 
                     # Restart BO services that aren't running or enabled
                     Write-Host "[$(Get-Date)] Starting validation of BO services on server $Computer"
-                    while ($Attempts -lt 5 -and ($BOServer.ValidateServices() | Where-Object { $_.ServerName -eq $env:COMPUTERNAME }).Count -gt 0) {
+                    while ($Attempts -lt 3 -and ($BOServer.ValidateServices() | Where-Object { $_.ServerName -eq $env:COMPUTERNAME }).Count -gt 0) {
                         $BOServer.RestartServices(@(($BOServer.ValidateServices() | Where-Object { $_.ServerName -eq $env:COMPUTERNAME }).CommandName))
                         $Attempts++
                         Write-Host "[$(Get-Date)] Attempts to start BO services on server ${$Computer}: $Attempts"
@@ -521,7 +516,7 @@ try {
                 }
                 catch {
                     # If some unplanned error happens, attempt another restart
-                    Write-Host "[$(Get-Date)] Unexpected error occured in connection to server ${$Computer}: $_"
+                    Write-Host "[$(Get-Date)] Unexpected error occured in connection to server $($Computer): $_"
                     return $true
                 }
             } -ArgumentList $Computer, $AppdPassword
@@ -530,7 +525,7 @@ try {
             Remove-PSSession $Session
             $NumRestarts++
 
-            if ($NumRestarts -eq 5) {
+            if ($NumRestarts -eq 3) {
                 $FailedRestarts += $Computer
             }
         }
