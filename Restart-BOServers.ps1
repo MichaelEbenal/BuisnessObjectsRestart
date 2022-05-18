@@ -56,7 +56,7 @@ try {
                 break
             }
             "sandbox" {
-                $pswd = ConvertTo-SecureString -String "$($env:BO_ADMIN_TEST)" -AsPlaintext -Force
+                $pswd = ConvertTo-SecureString -String $env:BO_ADMIN_TEST -Force
                 $cred = [System.Management.Automation.PSCredential]::new("bo-admin-test", $pswd)
                 break
             }
