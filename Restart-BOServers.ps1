@@ -1,11 +1,5 @@
 try {
-    write-host $env:STAGES
-    write-host $env:APPDPASSWORD
-    write-host $env:BOADMIN
-    write-host $env:BO_ADMIN_STAGE
-    write-host $env:BO_ADMIN_DEV
-    Write-Host "$(($env:BO_ADMIN_TEST).substring(0, $env:BO_ADMIN_TEST.length - 1))"
-
+    write-host $env:BO_ADMIN_TEST.gettype()
     # Replace in Azure DevOps
     $SelectedStages = $env:STAGES.Split(',')
 
@@ -37,6 +31,8 @@ try {
         }
     }
 
+    Write-Host (Get-Item WSMan:\\localhost\client\TrustedHosts).Value
+
     $AppdPassword = $env:APPDPASSWORD
 
     # List of which computers failed to start
@@ -60,7 +56,6 @@ try {
                 break
             }
             "sandbox" {
-                write-host "In sandbox cred maker"
                 $pswd = ConvertTo-SecureString -String "$($env:BO_ADMIN_TEST)" -AsPlaintext -Force
                 $cred = [System.Management.Automation.PSCredential]::new("bo-admin-test", $pswd)
                 break
