@@ -238,24 +238,24 @@ try {
                             $Service = $this.StopService($Service)
                             $Service = $this.StartService($Service)
                             $FailCount = 0
-                            while (-not $Service.State -like "Running*" -and $FailCount -lt 5) {
+                            while (-not $Service.State -like "Running*" -and $FailCount -lt 12) {
                                 Start-Sleep -Seconds 5
                                 $Service = $this.UpdateServices($Service)
                                 $FailCount++
-                                if ($FailCount -lt 5) {
-                                    $this.LogError($LogLoc, "Service `"$($Service.CommandName)`" has not entered running state after $(($FailCount + 1) * 5) seconds")
+                                if ($FailCount -lt 12) {
+                                    $this.LogError($LogLoc, "Service `"$($Service.CommandName)`" has not entered running state after $($FailCount * 5) seconds")
                                 }
                                 else {
-                                    $this.LogCritical($LogLoc, "Service `"$($Service.CommandName)`" has not entered running state after $(($FailCount + 1) * 5) seconds")
+                                    $this.LogCritical($LogLoc, "Service `"$($Service.CommandName)`" has not entered running state after $($FailCount * 5) seconds")
                                 }
                             }
                             $Service = $this.EnableService($Service)
                             $FailCount = 0
-                            while ($Service.Status -ne "Enabled" -and $FailCount -lt 5) {
+                            while ($Service.Status -ne "Enabled" -and $FailCount -lt 12) {
                                 $Service = $this.EnableService($Service)
                                 Start-Sleep -Seconds 5
                                 $FailCount++
-                                if ($FailCount -lt 5) {
+                                if ($FailCount -lt 12) {
                                     $this.LogError($LogLoc, "Service `"$($Service.CommandName)`" has not changed to enabled status after $($FailCount * 5) seconds")
                                 }
                                 else {
@@ -491,7 +491,7 @@ try {
                     }
 
                     # It made more sense to give the BO app a minute to start up its own servers before manually attempting to
-                    $SleepFor = 60
+                    $SleepFor = 90
                     Write-Host "[$(Get-Date)] Sleeping for $SleepFor seconds while BO app $Computer initializes services"
                     Start-Sleep -Seconds $SleepFor
 
