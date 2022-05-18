@@ -41,26 +41,28 @@ try {
         # Get credential for the bo-admin account for the lane the computer is on
         switch ("prod", "stage", "dev", "sandbox" | Where-Object { $Stages[$_] -contains $Computer }) {
             "prod" {
-                $pswd = ConvertTo-SecureString -String $env:BOADMIN -AsPlaintext -Force
-                $cred = [System.Management.Automation.PSCredential]::new("boadmin", $pswd)
+                $Pswd = ConvertTo-SecureString -String $env:BOADMIN -AsPlaintext -Force
+                $Cred = [System.Management.Automation.PSCredential]::new("boadmin", $Pswd)
                 break
             }
             "stage" {
-                $pswd = ConvertTo-SecureString -String $env:BO_ADMIN_STAGE -AsPlaintext -Force
-                $cred = [System.Management.Automation.PSCredential]::new("bo-admin-stage", $pswd)
+                $Pswd = ConvertTo-SecureString -String $env:BO_ADMIN_STAGE -AsPlaintext -Force
+                $Cred = [System.Management.Automation.PSCredential]::new("bo-admin-stage", $Pswd)
                 break
             }
             "dev" {
-                $pswd = ConvertTo-SecureString -String $env:BO_ADMIN_DEV -AsPlaintext -Force
-                $cred = [System.Management.Automation.PSCredential]::new("bo-admin-dev", $pswd)
+                $Pswd = ConvertTo-SecureString -String $env:BO_ADMIN_DEV -AsPlaintext -Force
+                $Cred = [System.Management.Automation.PSCredential]::new("bo-admin-dev", $Pswd)
                 break
             }
             "sandbox" {
-                $pswd = ConvertTo-SecureString -String $env:BO_ADMIN_TEST -Force
-                $cred = [System.Management.Automation.PSCredential]::new("bo-admin-test", $pswd)
+                $Pswd = ConvertTo-SecureString -String $env:BO_ADMIN_TEST -AsPlaintext -Force
+                $Cred = [System.Management.Automation.PSCredential]::new("bo-admin-test", $Pswd)
                 break
             }
         }
+
+        Write-Host $cred.GetType()
 
         # Controls whether to begin restart process 
         $NeedsRestart = $true
