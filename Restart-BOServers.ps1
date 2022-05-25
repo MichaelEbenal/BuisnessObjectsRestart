@@ -3,25 +3,25 @@ try {
     $SelectedLanes = $env:LANES.Split(',')
 
     # Which serers are in which stage
-    $Prod = @("W17003", "W17004", "W17005", "W17006")
-    $Stage = @("W17001", "W17002")
-    $Dev = @("W16999")
-    $Sandbox = @("W17000")
+    $Prod    = @('W17003', 'W17004', 'W17005', 'W17006')
+    $Stage   = @('W17001', 'W17002')
+    $Dev     = @('W16999')
+    $Sandbox = @('W17000')
 
     # Make hashmap of stages
     $Lanes = @{
-        "prod"    = $Prod;
-        "stage"   = $Stage;
-        "dev"     = $Dev;
-        "sandbox" = $Sandbox
+        'prod'    = $Prod;
+        'stage'   = $Stage;
+        'dev'     = $Dev;
+        'sandbox' = $Sandbox
     }
 
     # Create array of computers to restart
     $Computers = @()
-    ($SelectedLanes -contains "prod"    ? ($Computers += $Prod)    : $null) | Out-Null
-    ($SelectedLanes -contains "stage"   ? ($Computers += $Stage)   : $null) | Out-Null
-    ($SelectedLanes -contains "dev"     ? ($Computers += $Dev)     : $null) | Out-Null
-    ($SelectedLanes -contains "sandbox" ? ($Computers += $Sandbox) : $null) | Out-Null    
+    ($SelectedLanes -contains 'prod'    ? ($Computers += $Prod)    : $null) | Out-Null
+    ($SelectedLanes -contains 'stage'   ? ($Computers += $Stage)   : $null) | Out-Null
+    ($SelectedLanes -contains 'dev'     ? ($Computers += $Dev)     : $null) | Out-Null
+    ($SelectedLanes -contains 'sandbox' ? ($Computers += $Sandbox) : $null) | Out-Null    
     
     # Add each computer to the trusted hosts list for WinRM
     foreach ($Computer in $Computers) {
@@ -36,25 +36,25 @@ try {
     $FailedRestarts = $()
     foreach ($Computer in $Computers) {
         # Get credential for the bo-admin account for the lane the computer is on
-        switch ("prod", "stage", "dev", "sandbox" | Where-Object { $Lanes[$_] -contains $Computer }) {
-            "prod" {
+        switch ('prod', 'stage', 'dev', 'sandbox' | Where-Object { $Lanes[$_] -contains $Computer }) {
+            'prod' {
                 $Pswd = ConvertTo-SecureString -String $env:BOADMIN -AsPlaintext -Force
-                $Cred = [System.Management.Automation.PSCredential]::new("boadmin", $Pswd)
+                $Cred = [System.Management.Automation.PSCredential]::new('boadmin', $Pswd)
                 break
             }
-            "stage" {
+            'stage' {
                 $Pswd = ConvertTo-SecureString -String $env:BO_ADMIN_STAGE -AsPlaintext -Force
-                $Cred = [System.Management.Automation.PSCredential]::new("bo-admin-stage", $Pswd)
+                $Cred = [System.Management.Automation.PSCredential]::new('bo-admin-stage', $Pswd)
                 break
             }
-            "dev" {
+            'dev' {
                 $Pswd = ConvertTo-SecureString -String $env:BO_ADMIN_DEV -AsPlaintext -Force
-                $Cred = [System.Management.Automation.PSCredential]::new("bo-admin-dev", $Pswd)
+                $Cred = [System.Management.Automation.PSCredential]::new('bo-admin-dev', $Pswd)
                 break
             }
-            "sandbox" {
+            'sandbox' {
                 $Pswd = ConvertTo-SecureString -String $env:BO_ADMIN_TEST -AsPlaintext -Force
-                $Cred = [System.Management.Automation.PSCredential]::new("bo-admin-test", $Pswd)
+                $Cred = [System.Management.Automation.PSCredential]::new('bo-admin-test', $Pswd)
                 break
             }
         }
@@ -88,7 +88,7 @@ try {
                         break
                     }
                     catch {
-                        if ($_ -match "^\[.{0,6}\] Connecting to remote server .{0,6} failed with the following error message : .*$") {
+                        if ($_ -match '^\[.{0,6}\] Connecting to remote server .{0,6} failed with the following error message : .*$') {
                             $Attempts++
                             Write-Host "[$(Get-Date)] Failed attempts to start PSSession to server $($Computer): $Attempts"
                             # Wait an increasing amount of time between connects
@@ -106,7 +106,13 @@ try {
                 continue
             }
 
-            $NeedsRestart = invoke-command -Session $Session -ScriptBlock {
+            Write-Host "[$(Get-Date)] Triggering stop and delayed start of AppD monitoring agent."
+            Invoke-Command -Session $Session -ScriptBlock {
+                Start-ScheduledTask -TaskName 'Start AppD service after delay' -TaskPath '\PlatformTeam\'
+                Stop-Service 'Appdynamics Machine Agent' -Force
+            }
+
+            $NeedsRestart = Invoke-Command -Session $Session -ScriptBlock {
                 param($Computer, $AppdPassword)
                 try {
                     # Begin supporting classes and functions
@@ -172,7 +178,7 @@ try {
                     }
                                 
                     class BOInstance {
-                        static [string]$LogFolder = "C:\temp\BO_Service_Management\"
+                        static [string]$LogFolder = 'C:\temp\BO_Service_Management\'
                         static [string]$LogName = "$((Get-Date).ToShortDateString().replace('/','-'))_BO_Service_Management.txt"
 
                         [string]$ExeLocation
@@ -180,8 +186,8 @@ try {
                         [string]$Password
                         [string]$Authentication
                         [BOService[]]$Services
-                        [string[]]$ExcludedServices = , "CentralManagementServer"
-                        [string]$LogLevel = "Error"
+                        [string[]]$ExcludedServices = , 'CentralManagementServer'
+                        [string]$LogLevel = 'Error'
                         [bool]$LogExternal = $true
                         [BOSpecialCaseRestart[]]$SpecialRestartCases
                     
@@ -192,8 +198,8 @@ try {
                             [string]$Authentication
                         ) {
                             [BOInstance]::CleanLogs()
-                            $LogLoc = "Constructor"
-                            $this.LogDebug($LogLoc, "Instanciated using 4 parameter constructor")
+                            $LogLoc = 'Constructor'
+                            $this.LogDebug($LogLoc, 'Instanciated using 4 parameter constructor')
                             $this.LogDebug($LogLoc, "Parameter `"ExeLocation`" is `"$ExeLocation`"")
                             $this.LogDebug($LogLoc, "Parameter `"Username`" is `"$Username`"")
                             $this.LogDebug($LogLoc, "Parameter `"Password`" is not disclosed")
@@ -203,7 +209,7 @@ try {
                             $this.Password = $Password
                             $this.Authentication = $Authentication
                             $this.CheckServer()
-                            $this.LogInfo($LogLoc, "Parameters validated successfully")
+                            $this.LogInfo($LogLoc, 'Parameters validated successfully')
                             $this.UpdateServices()
                         }
                 
@@ -211,21 +217,21 @@ try {
                             [string]$Password
                         ) {
                             [BOInstance]::CleanLogs()
-                            $LogLoc = "Constructor"
-                            $this.LogDebug($LogLoc, "Instanciated using 1 parameter constructor")
+                            $LogLoc = 'Constructor'
+                            $this.LogDebug($LogLoc, 'Instanciated using 1 parameter constructor')
                             $this.LogDebug($LogLoc, "Parameter `"Password`" is not disclosed")
-                            $this.ExeLocation = "F:\BusinessObjects\SAP BusinessObjects Enterprise XI 4.0\win64_x64\ccm.exe"
-                            $this.Username = "appd_monitoring"
-                            $this.Authentication = "secEnterprise"
+                            $this.ExeLocation = 'F:\BusinessObjects\SAP BusinessObjects Enterprise XI 4.0\win64_x64\ccm.exe'
+                            $this.Username = 'appd_monitoring'
+                            $this.Authentication = 'secEnterprise'
                             $this.Password = $Password
                             $this.CheckServer()
-                            $this.LogInfo($LogLoc, "Parameters validated successfully")
+                            $this.LogInfo($LogLoc, 'Parameters validated successfully')
                             $this.UpdateServices()
                         }
                 
                 
                         [void]CheckServer() {
-                            $LogLoc = "CheckServer"
+                            $LogLoc = 'CheckServer'
                             try {
                                 $CorrectParams = (& $this.ExeLocation -Display -Username $this.Username -Password $this.Password -Authentication $this.Authentication)
                             }
@@ -233,38 +239,38 @@ try {
                                 $this.LogCritical($LogLoc, "Parameter `"ExeLocation`" is invalid. Terminating.")
                                 throw "Parameter `"ExeLocation`" is incorrect or insuficcient permissions were used."
                             }
-                            if ($CorrectParams[2].StartsWith("Unable")) {
+                            if ($CorrectParams[2].StartsWith('Unable')) {
                                 $this.LogCritical($LogLoc, "$($CorrectParams[2]): $($CorrectParams[3])")
                                 throw "$($CorrectParams[2]): $($CorrectParams[3])"
                             }
                         }
                 
                         [BOService]StartService([BOService]$Service) {
-                            $LogLoc = "StartService"
+                            $LogLoc = 'StartService'
                             $this.LogDebug($LogLoc, "Starting service `"$($Service.ServiceName)`" on host `"$($Service.ServerName)`" with status `"$($Service.Status)`" and state `"$($Service.State)`"")
                             
-                            $this.SendRawCommand("-managedstart", $Service.CommandName)
+                            $this.SendRawCommand('-managedstart', $Service.CommandName)
                             $Service = $this.WaitServiceStart($Service)
 
                             return $Service
                         }
                 
                         [BOService]StopService([BOService]$Service) {
-                            $LogLoc = "StopService"
+                            $LogLoc = 'StopService'
                             $this.LogDebug($LogLoc, "Stopping service `"$($Service.ServiceName)`" on host `"$($Service.ServerName)`" with status `"$($Service.Status)`" and state `"$($Service.State)`"")
                             
-                            $this.SendRawCommand("-managedstop", $Service.CommandName)
+                            $this.SendRawCommand('-managedstop', $Service.CommandName)
                             $Service = $this.UpdateServices($Service)
                             
                             $Attempts = 0
-                            while ($Service.State -ne "Stopped" -and $Attempts -lt 12) {
+                            while ($Service.State -ne 'Stopped' -and $Attempts -lt 12) {
                                 $this.LogError($LogLoc, "Service `"$($Service.ServiceName)`" has not entered stopped state after $($Attempts * 5) seconds")
                                 Start-Sleep -Seconds 5
                                 $Service = $this.UpdateServices($Service)
                                 $Attempts++
                             }
                             
-                            if ($Service.State -ne "Stopped") {
+                            if ($Service.State -ne 'Stopped') {
                                 $this.LogCritical($LogLoc, "Service `"$($Service.ServiceName)`" has not entered stopped state after $($Attempts * 5) seconds and will be forcefully terminated")
                                 $Service = $this.TerminateService($Service)
                             }
@@ -273,35 +279,35 @@ try {
                         }
                 
                         [BOService]EnableService([BOService]$Service) {
-                            $LogLoc = "EnableService"
+                            $LogLoc = 'EnableService'
                             $this.LogDebug($LogLoc, "Enabling service `"$($Service.ServiceName)`" on host `"$($Service.ServerName)`" with status `"$($Service.Status)`" and state `"$($Service.State)`"")
-                            $this.SendRawCommand("-enable", $Service.CommandName)
+                            $this.SendRawCommand('-enable', $Service.CommandName)
                             return $this.UpdateServices($Service)	
                         }
                 
                         [BOService]DisableService([BOService]$Service) {
-                            $LogLoc = "DisableService"
+                            $LogLoc = 'DisableService'
                             $this.LogDebug($LogLoc, "Disabling service `"$($Service.ServiceName)`" on host `"$($Service.ServerName)`" with status `"$($Service.Status)`" and state `"$($Service.State)`"")
-                            $this.SendRawCommand("-disable", $Service.CommandName)
+                            $this.SendRawCommand('-disable', $Service.CommandName)
                             return $this.UpdateServices($Service)
                         }
                 
                         [BOService]TerminateService([BOService]$Service) {
-                            $LogLoc = "TerminateService"
+                            $LogLoc = 'TerminateService'
                             $this.LogDebug($LogLoc, "Terminating service `"$($Service.ServiceName)`" on host `"$($Service.ServerName)`" with status `"$($Service.Status)`" and state `"$($Service.State)`"")
-                            $this.SendRawCommand("-managedforceterminate", $Service.CommandName)
+                            $this.SendRawCommand('-managedforceterminate', $Service.CommandName)
                             return $this.UpdateServices($Service)
                         }
 
                         [void]WaitServicesStart() {
-                            $LogLoc = "WaitServicesStart"
-                            $this.LogInfo($LogLoc, "Waiting for services to start")
+                            $LogLoc = 'WaitServicesStart'
+                            $this.LogInfo($LogLoc, 'Waiting for services to start')
                             $this.UpdateServices()
                             
                             $Attempts = 0
-                            while (($this.Services | Where-Object { $_.State -eq "Starting" -or $_.State -eq "Initializing" }).Count -gt 0 -and $Attempts -lt 24) {
+                            while (($this.Services | Where-Object { $_.State -eq 'Starting' -or $_.State -eq 'Initializing' }).Count -gt 0 -and $Attempts -lt 24) {
                                 $Attempts++
-                                $this.LogInfo($LogLoc, "Waiting for $(($this.Services | Where-Object { $_.State -eq "Starting" -or $_.State -eq "Initializing" }).Count) services to start")
+                                $this.LogInfo($LogLoc, "Waiting for $(($this.Services | Where-Object { $_.State -eq 'Starting' -or $_.State -eq 'Initializing' }).Count) services to start")
                                 
                                 Start-Sleep -Seconds 5
                                 $this.LogInfo($LogLoc, "Waited $($Attempts * 5) seconds for services to start")
@@ -310,11 +316,11 @@ try {
                         }
 
                         [BOService]WaitServiceStart([BOService]$Service) {
-                            $LogLoc = "WaitServiceStart"
+                            $LogLoc = 'WaitServiceStart'
                             $this.LogInfo($LogLoc, "Waiting for service `"$($Service.CommandName)`" to start")
                             
                             $Attempts = 0
-                            while (($Service.State -eq "Starting" -or $Service.State -eq "Initializing") -and $Attempts -lt 24) {
+                            while (($Service.State -eq 'Starting' -or $Service.State -eq 'Initializing') -and $Attempts -lt 24) {
                                 $Attempts++
                                 
                                 Start-Sleep -Seconds 5
@@ -325,7 +331,7 @@ try {
                         }
 
                         [void]RestartService([BOService]$Service) {
-                            $LogLoc = "RestartService"
+                            $LogLoc = 'RestartService'
                             $this.LogInfo($LogLoc, "Beginning restart of service `"$($Service.CommandName)`"")
 
                             if ($Service.ServiceName -in $this.SpecialRestartCases.ServiceName) {
@@ -342,16 +348,16 @@ try {
 
                             }
 
-                            if ($Service.Status -ne "Disabled") {
+                            if ($Service.Status -ne 'Disabled') {
                                 $Service = $this.DisableService($Service)
                             }
 
                             switch ($Service.State) {
-                                { "Running", "Starting", "Running With Errors" -contains $_ } {
+                                { 'Running', 'Starting', 'Running With Errors' -contains $_ } {
                                     $Service = $this.StopService($Service)
                                 }
 
-                                "Stopped" {
+                                'Stopped' {
                                     break
                                 }
                             }
@@ -365,15 +371,16 @@ try {
                         }
 
                         [BOService]SpecialRestart([BOService]$Service) {
-                            $LogLoc = "SpecialRestart"
+                            $LogLoc = 'SpecialRestart'
                             $this.LogInfo($LogLoc, "Attempting to perform a special restart of service `"$($Service.ServiceName)`"")
                             $BOSpecialCases = $this.SpecialRestartCases | Where-Object { $_.ServiceName -eq $Service.ServiceName }
                             $TrueCases = ($BOSpecialCases | Where-Object { (Invoke-Expression $_.SpecialCase) -eq $true })
 
                             if ($null -eq $TrueCases) {
-                                $this.LogInfo($LogLoc, "No special cases were met. Returning for normal restart")
+                                $this.LogInfo($LogLoc, 'No special cases were met. Returning for normal restart')
                                 return $null
-                            } else {
+                            }
+                            else {
                                 $TrueCase = $TrueCases[0]
                             }
 
@@ -392,30 +399,30 @@ try {
                         }
                 
                         [void]RestartServices([object[]]$CommandNames) {
-                            $LogLoc = "RestartServices"
-                            $this.LogInfo($LogLoc, "Attempting to restart the following services: $($CommandNames -Join ", ")")
+                            $LogLoc = 'RestartServices'
+                            $this.LogInfo($LogLoc, "Attempting to restart the following services: $($CommandNames -Join ', ')")
                             foreach ($CommandName in $CommandNames) {
                                 [BOService]$Service = $this.Services | Where-Object { $_.CommandName -eq $CommandName }
-                                if ($Service.State -ne "Running" -or $Service.Status -ne "Enabled") {
+                                if ($Service.State -ne 'Running' -or $Service.Status -ne 'Enabled') {
                                     $this.RestartService($Service)
                                 }
                             }
                         }
                 
                         [void]RestartAllServices() {
-                            $LogLoc = "RestartAllServices"
-                            $this.LogInfo($LogLoc, "Triggering a restart of all services")
+                            $LogLoc = 'RestartAllServices'
+                            $this.LogInfo($LogLoc, 'Triggering a restart of all services')
                             $this.RestartServices($this.Services.CommandName)
                         }
                 
                         [void]RestartServices([string]$ComputerName) {
-                            $LogLoc = "RestartServices"
+                            $LogLoc = 'RestartServices'
                             $this.LogDebug($LogLoc, "Triggering a restart of all services on host `"$ComputerName`"")
                             $this.RestartServices(($this.Services | Where-Object { $_.ServerName -eq $ComputerName }).CommandName)
                         }
                 
                         [BOService]UpdateServices([BOService]$Service) {
-                            $LogLoc = "UpdateServices"
+                            $LogLoc = 'UpdateServices'
                             $this.LogDebug($LogLoc, "Triggering an update of services to refresh service `"$($Service.CommandName)`"")
                             $CommandName = $Service.CommandName
                             $this.UpdateServices()
@@ -423,13 +430,13 @@ try {
                         }
                 
                         [void]UpdateServices() {
-                            $LogLoc = "UpdateServices"
-                            $this.LogDebug($LogLoc, "Updating services")
+                            $LogLoc = 'UpdateServices'
+                            $this.LogDebug($LogLoc, 'Updating services')
                             [string[]]$RawServices = $this.GetRawDetails()
                             [BOService[]]$this.Services = $null
                             foreach ($i in 0..($RawServices.Count - 1)) {
-                                if ($RawServices[$i].StartsWith("Server Name:")) {
-                                    $this.LogDebug($LogLoc, "Service found in raw text")
+                                if ($RawServices[$i].StartsWith('Server Name:')) {
+                                    $this.LogDebug($LogLoc, 'Service found in raw text')
                                     $ServerName = $RawServices[$i + 3].Split(':', 2)[1].Trim()
                                     $ServiceName = $RawServices[$i].Split('.', 2)[1].Trim()
                                     $this.LogDebug($LogLoc, "Host name is `"$ServerName`"")
@@ -443,7 +450,7 @@ try {
                                     $Status = $RawServices[$i + 2].Split(':', 2)[1].Trim()
                                     $this.LogDebug($LogLoc, "Status is `"$Status`"")
                                     $ProcessId = $null
-                                    if ($state.Equals("Running")) {
+                                    if ($state.Equals('Running')) {
                                         $ProcessId = $RawServices[$i + 4].Split(':', 2)[1].Trim()
                                     }
                                     $this.LogDebug($LogLoc, "PID is `"$ProcessId`"")
@@ -451,23 +458,23 @@ try {
                                     $this.Services += $NewService
                                 }
                             }
-                            $this.LogDebug($LogLoc, "Update finished")
+                            $this.LogDebug($LogLoc, 'Update finished')
                         }
                 
                         [BOService[]]ValidateServices() {
-                            $LogLoc = "ValidateServices"
-                            $this.LogDebug($LogLoc, "Started validating services")
+                            $LogLoc = 'ValidateServices'
+                            $this.LogDebug($LogLoc, 'Started validating services')
                             $this.UpdateServices()
-                            $this.LogDebug($LogLoc, "Finished validating services")
-                            return $this.Services | Where-Object { $_.State -ne "Running" -or $_.Status -ne "Enabled" }
+                            $this.LogDebug($LogLoc, 'Finished validating services')
+                            return $this.Services | Where-Object { $_.State -ne 'Running' -or $_.Status -ne 'Enabled' }
                         }
                 
                         [string[]]GetRawDetails() {
-                            return $this.SendRawCommand("-Display")
+                            return $this.SendRawCommand('-Display')
                         }
                 
                         [object]SendRawCommand([string]$Command, [string]$Data) {
-                            $LogLoc = "SendRawCommand"
+                            $LogLoc = 'SendRawCommand'
                             $FullCommand = "$($this.ExeLocation) $Command $Data -Username $($this.Username) -Password CONFIDENTIAL -Authentication $($this.Authentication)"
                             $this.LogDebug($LogLoc, "Running command: $FullCommand")
                             return & $this.ExeLocation $Command $Data -Username $this.Username -Password $this.Password -Authentication $this.Authentication
@@ -489,26 +496,26 @@ try {
                         }
                 
                         [void]LogCritical([string]$From, [string]$Message) {
-                            if ([int][LogLevels]$this.LogLevel -ge [int][LogLevels]"Critical") {
-                                $this.Log($From, "Critical", $Message)
+                            if ([int][LogLevels]$this.LogLevel -ge [int][LogLevels]'Critical') {
+                                $this.Log($From, 'Critical', $Message)
                             }
                         }
                 
                         [void]LogError([string]$From, [string]$Message) {
-                            if ([int][LogLevels]$this.LogLevel -ge [int][LogLevels]"Error") {
-                                $this.Log($From, "Error", $Message)
+                            if ([int][LogLevels]$this.LogLevel -ge [int][LogLevels]'Error') {
+                                $this.Log($From, 'Error', $Message)
                             }
                         }
                 
                         [void]LogInfo([string]$From, [string]$Message) {
-                            if ([int][LogLevels]$this.LogLevel -ge [int][LogLevels]"Info") {
-                                $this.Log($From, "Info", $Message)
+                            if ([int][LogLevels]$this.LogLevel -ge [int][LogLevels]'Info') {
+                                $this.Log($From, 'Info', $Message)
                             }
                         }
                 
                         [void]LogDebug([string]$From, [string]$Message) {
-                            if ([int][LogLevels]$this.LogLevel -ge [int][LogLevels]"Debug") {
-                                $this.Log($From, "Debug", $Message)
+                            if ([int][LogLevels]$this.LogLevel -ge [int][LogLevels]'Debug') {
+                                $this.Log($From, 'Debug', $Message)
                             }
                         }
                 
@@ -528,7 +535,7 @@ try {
                             [string[]]$Services
                         )
                 
-                        $BOServices = "Apache Tomcat for BI 4", "Server Intelligence Agent ($env:COMPUTERNAME )"
+                        $BOServices = 'Apache Tomcat for BI 4', "Server Intelligence Agent ($env:COMPUTERNAME )"
                         if ($Services -eq $null) {
                             $Services = $BOServices
                         }
@@ -543,7 +550,7 @@ try {
                     }
                 
                     function Get-BOServices {
-                        return Get-Service "Apache Tomcat for BI 4", "Server Intelligence Agent ($env:computername)" | Select-Object DisplayName, Status
+                        return Get-Service 'Apache Tomcat for BI 4', "Server Intelligence Agent ($env:computername)" | Select-Object DisplayName, Status
                     }
                     # End supporting classes and functions
 
@@ -551,15 +558,15 @@ try {
                     $Attempts = 0
                     $WinServices = Get-BOServices
                     Write-Host "[$(Get-Date)] Starting Windows services on server $Computer"
-                    while ($Attempts -lt 8 -and ($WinServices | Where-Object { $_.Status -ne "Running" }).Count -gt 0) {
+                    while ($Attempts -lt 8 -and ($WinServices | Where-Object { $_.Status -ne 'Running' }).Count -gt 0) {
                         # Only attempt to start services that aren't running or will start
-                        foreach ($WinService in ($WinServices | Where-Object { $_.Status -notin "Running", "StartPending" })) {
+                        foreach ($WinService in ($WinServices | Where-Object { $_.Status -notin 'Running', 'StartPending' })) {
                             Start-BOServices -Services $WinService.DisplayName
                         }
 
                         # If service has start pending, wait for it
                         $WinServices = Get-BOServices
-                        if (($WinServices | Where-Object { $_.Status -eq "StartPending" }).Count -gt 0) { 
+                        if (($WinServices | Where-Object { $_.Status -eq 'StartPending' }).Count -gt 0) { 
                             Start-Sleep -Seconds ($Attempts * 5)
                         }
 
@@ -569,9 +576,9 @@ try {
                     }
 
                     # Determine if any services aren't running
-                    $BadServices = $WinServices | Where-Object { $_.Status -ne "Running" }
+                    $BadServices = $WinServices | Where-Object { $_.Status -ne 'Running' }
                     if ($BadServices.Count -gt 0) {
-                        Write-Host "[$(Get-Date)] One or more Windows services on failed to start on server $($Computer): $($BadServices.DisplayName -join ", ")"
+                        Write-Host "[$(Get-Date)] One or more Windows services on failed to start on server $($Computer): $($BadServices.DisplayName -join ', ')"
                         return $true
                     }
                     else {
@@ -588,7 +595,7 @@ try {
                             break
                         }
                         catch {
-                            if ($_ -like "Unable to logon to CMS: Reason: Unable to log on: Could not connect to server*") {
+                            if ($_ -like 'Unable to logon to CMS: Reason: Unable to log on: Could not connect to server*') {
                                 $Attempts++
                                 Write-Host "[$(Get-Date)] Failed attempts to connect to BO app on server $($Computer): $Attempts"
                             
@@ -614,27 +621,27 @@ try {
                     }
 
                     # Creates a log on the server which stores information about the BO service process. See the BOInstance class to see whats logged and where
-                    $BOServer.LogLevel = "Info"
+                    $BOServer.LogLevel = 'Info'
                     $BOServer.SpecialRestartCases += [BOSpecialCaseRestart]::new(
-                        "CrystalReportsCacheServer",
+                        'CrystalReportsCacheServer',
                         '$Service.State -eq "Running with Errors"',
                         @(
-                            [BORestartInstruction]::new("AdaptiveJobServer", "Disable"),
-                            [BORestartInstruction]::new("AdaptiveJobServer", "Stop"),
-                            [BORestartInstruction]::new("CrystalReportsCacheServer", "Disable"),
-                            [BORestartInstruction]::new("CrystalReportsCacheServer", "Stop"),
-                            [BORestartInstruction]::new("CrystalReports2016ProcessingServer", "Disable"),
-                            [BORestartInstruction]::new("CrystalReports2016ProcessingServer", "Stop"),
-                            [BORestartInstruction]::new("CrystalReportsProcessingServer", "Disable"),
-                            [BORestartInstruction]::new("CrystalReportsProcessingServer", "Stop"),
-                            [BORestartInstruction]::new("CrystalReportsCacheServer", "Start"),
-                            [BORestartInstruction]::new("CrystalReportsCacheServer", "Enable"),
-                            [BORestartInstruction]::new("CrystalReports2016ProcessingServer", "Start"),
-                            [BORestartInstruction]::new("CrystalReportsProcessingServer", "Start"),
-                            [BORestartInstruction]::new("CrystalReports2016ProcessingServer", "Enable"),
-                            [BORestartInstruction]::new("CrystalReportsProcessingServer", "Enable"),
-                            [BORestartInstruction]::new("AdaptiveJobServer", "Start"),
-                            [BORestartInstruction]::new("AdaptiveJobServer", "Enable")
+                            [BORestartInstruction]::new('AdaptiveJobServer', 'Disable'),
+                            [BORestartInstruction]::new('AdaptiveJobServer', 'Stop'),
+                            [BORestartInstruction]::new('CrystalReportsCacheServer', 'Disable'),
+                            [BORestartInstruction]::new('CrystalReportsCacheServer', 'Stop'),
+                            [BORestartInstruction]::new('CrystalReports2016ProcessingServer', 'Disable'),
+                            [BORestartInstruction]::new('CrystalReports2016ProcessingServer', 'Stop'),
+                            [BORestartInstruction]::new('CrystalReportsProcessingServer', 'Disable'),
+                            [BORestartInstruction]::new('CrystalReportsProcessingServer', 'Stop'),
+                            [BORestartInstruction]::new('CrystalReportsCacheServer', 'Start'),
+                            [BORestartInstruction]::new('CrystalReportsCacheServer', 'Enable'),
+                            [BORestartInstruction]::new('CrystalReports2016ProcessingServer', 'Start'),
+                            [BORestartInstruction]::new('CrystalReportsProcessingServer', 'Start'),
+                            [BORestartInstruction]::new('CrystalReports2016ProcessingServer', 'Enable'),
+                            [BORestartInstruction]::new('CrystalReportsProcessingServer', 'Enable'),
+                            [BORestartInstruction]::new('AdaptiveJobServer', 'Start'),
+                            [BORestartInstruction]::new('AdaptiveJobServer', 'Enable')
                         )
                     )
 
@@ -672,11 +679,16 @@ try {
                 }
             } -ArgumentList $Computer, $AppdPassword
 
+            Write-Host "[$(Get-Date)] Starting AppD monitoring agent"
+            Invoke-Command -Session $Session -ScriptBlock {
+                Start-Service 'Appdynamics Machine Agent'
+            }
+
             Write-Host "[$(Get-Date)] Terminating PSSession to server $Computer" 
             Remove-PSSession $Session
 
             if ($NumRestarts -eq 3) {
-                $FailedRestarts += ,$Computer
+                $FailedRestarts += , $Computer
             }
             $NumRestarts++
         }
@@ -684,7 +696,7 @@ try {
 
     # Report back status at end of process
     if ($FailedRestarts.Count -gt 0) {
-        Write-Host "[$(Get-Date)] The following servers failed to restart: $($FailedRestarts -join ", ")"
+        Write-Host "[$(Get-Date)] The following servers failed to restart: $($FailedRestarts -join ', ')"
     }
     else {
         Write-Host "[$(Get-Date)] All specified server restarted sucessfully"
