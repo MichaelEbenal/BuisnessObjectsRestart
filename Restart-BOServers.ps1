@@ -109,13 +109,18 @@ try {
             Write-Host "[$(Get-Date)] Triggering stop and delayed start of AppD monitoring agent."
             Invoke-Command -Session $Session -ScriptBlock {
                 Start-ScheduledTask -TaskName 'Start AppD service after delay' -TaskPath '\PlatformTeam\'
-                Stop-Service 'Appdynamics Machine Agent' -Force
+                $ServicePID=(Get-CimInstance -Class Win32_Service -Filter "Name LIKE 'Appdynamics Machine Agent'").ProcessId
+                if ($null -ne $ServicePID) {
+                    taskkill /F /PID $ServicePID
+                }
             }
 
             $NeedsRestart = Invoke-Command -Session $Session -ScriptBlock {
                 param($Computer, $AppdPassword)
                 try {
-                    # Begin supporting classes and functions
+                    <# Begin supporting classes and functions #>
+
+                    # Stores information of a single BO Service
                     class BOService {
                         [string]$ServerName
                         [string]$ServiceName
@@ -140,7 +145,8 @@ try {
                         }
                     }
 
-
+                    # Stores the name of a BO service and what to do to that service
+                    # Instructions include Start, Stop, Terminate, Enable, and Disable
                     class BORestartInstruction {
                         [string]$ServiceName
                         [string]$ServiceInstruction
@@ -154,6 +160,9 @@ try {
                         }
                     }
 
+                    # Stores info for how to restart a specific BO process when a specific case is met
+                    # The special case is evaluated as code, and if returns true when restarting the specified service
+                    # executes the instructions from the Instructions list.
                     class BOSpecialCaseRestart {
                         [string]$ServiceName
                         [string]$SpecialCase
@@ -170,13 +179,15 @@ try {
                         }
                     }
                     
+                    # Allows to do comparisons on common log types in BOInstace logging
                     enum LogLevels {
                         Critical = 0
                         Error = 20
                         Information = 40
                         Debug = 60
                     }
-                                
+                    
+                    # Stores information about a BO server, including it's services and login info, and any special restart cases and instructions
                     class BOInstance {
                         static [string]$LogFolder = 'C:\temp\BO_Service_Management\'
                         static [string]$LogName = "$((Get-Date).ToShortDateString().replace('/','-'))_BO_Service_Management.txt"
@@ -191,6 +202,7 @@ try {
                         [bool]$LogExternal = $true
                         [BOSpecialCaseRestart[]]$SpecialRestartCases
                     
+                        # Pass in all the information needed to log into a server
                         BOInstance(
                             [string]$ExeLocation,
                             [string]$Username,
@@ -213,6 +225,7 @@ try {
                             $this.UpdateServices()
                         }
                 
+                        # Only pass in the password, assume other needed info is default
                         BOInstance(
                             [string]$Password
                         ) {
@@ -229,7 +242,7 @@ try {
                             $this.UpdateServices()
                         }
                 
-                
+                        # Used to check if the info provided by constructors can be used to log into a BO server. Throws error if login not successful.
                         [void]CheckServer() {
                             $LogLoc = 'CheckServer'
                             try {
@@ -245,6 +258,7 @@ try {
                             }
                         }
                 
+                        # Takes a service and attempts to start it. Waits a reasonable time for the service to start before returning.
                         [BOService]StartService([BOService]$Service) {
                             $LogLoc = 'StartService'
                             $this.LogDebug($LogLoc, "Starting service `"$($Service.ServiceName)`" on host `"$($Service.ServerName)`" with status `"$($Service.Status)`" and state `"$($Service.State)`"")
@@ -255,6 +269,7 @@ try {
                             return $Service
                         }
                 
+                        # Takes a service and attempts to stop it. If the service does not stop after a reasonable time, the service is terminated before returning.
                         [BOService]StopService([BOService]$Service) {
                             $LogLoc = 'StopService'
                             $this.LogDebug($LogLoc, "Stopping service `"$($Service.ServiceName)`" on host `"$($Service.ServerName)`" with status `"$($Service.Status)`" and state `"$($Service.State)`"")
@@ -278,13 +293,16 @@ try {
                             return $Service
                         }
                 
+                        # Takes a service and attempts to enable it. No checks are done to see if service was enabled because typically
+                        # the sservice will be enabled immediately, or some other condition prevents it from enabling such that waiting doesn't help.
                         [BOService]EnableService([BOService]$Service) {
                             $LogLoc = 'EnableService'
                             $this.LogDebug($LogLoc, "Enabling service `"$($Service.ServiceName)`" on host `"$($Service.ServerName)`" with status `"$($Service.Status)`" and state `"$($Service.State)`"")
                             $this.SendRawCommand('-enable', $Service.CommandName)
                             return $this.UpdateServices($Service)	
                         }
-                
+
+                        # Takes a service and attempts to disable it.
                         [BOService]DisableService([BOService]$Service) {
                             $LogLoc = 'DisableService'
                             $this.LogDebug($LogLoc, "Disabling service `"$($Service.ServiceName)`" on host `"$($Service.ServerName)`" with status `"$($Service.Status)`" and state `"$($Service.State)`"")
@@ -292,6 +310,7 @@ try {
                             return $this.UpdateServices($Service)
                         }
                 
+                        # Takes a service and terminates it.
                         [BOService]TerminateService([BOService]$Service) {
                             $LogLoc = 'TerminateService'
                             $this.LogDebug($LogLoc, "Terminating service `"$($Service.ServiceName)`" on host `"$($Service.ServerName)`" with status `"$($Service.Status)`" and state `"$($Service.State)`"")
@@ -299,6 +318,7 @@ try {
                             return $this.UpdateServices($Service)
                         }
 
+                        # Wait for all services to enter the Running state. If services takes too long, continue.
                         [void]WaitServicesStart() {
                             $LogLoc = 'WaitServicesStart'
                             $this.LogInfo($LogLoc, 'Waiting for services to start')
@@ -315,6 +335,7 @@ try {
                             }
                         }
 
+                        # Wait for a service to enter the Running state. If service takes too long, continue.
                         [BOService]WaitServiceStart([BOService]$Service) {
                             $LogLoc = 'WaitServiceStart'
                             $this.LogInfo($LogLoc, "Waiting for service `"$($Service.CommandName)`" to start")
@@ -330,6 +351,7 @@ try {
                             return $Service
                         }
 
+                        # Attempt to restart a single BO service. Checks for a sepcial restart case, and if not met, disables, stops, starts, and enables the service.
                         [void]RestartService([BOService]$Service) {
                             $LogLoc = 'RestartService'
                             $this.LogInfo($LogLoc, "Beginning restart of service `"$($Service.CommandName)`"")
@@ -370,6 +392,8 @@ try {
                             $this.LogDebug($LogLoc, "Status was `"$($Service.Status)`" and state was `"$($Service.State)`"")
                         }
 
+                        # Attempts to perform a special restart by checking the case, and if true, executing the instructions for that case.
+                        # If multiple cases are met, only executes the first. Having multiple matching cases is not recommended
                         [BOService]SpecialRestart([BOService]$Service) {
                             $LogLoc = 'SpecialRestart'
                             $this.LogInfo($LogLoc, "Attempting to perform a special restart of service `"$($Service.ServiceName)`"")
@@ -384,6 +408,7 @@ try {
                                 $TrueCase = $TrueCases[0]
                             }
 
+                            # Turns the string instructions into strings which can be invoked as commands in the current environment.
                             foreach ($Instruction in $TrueCase.Instructions) {
                                 $InstructionService = $this.Services | Where-Object { $_.ServiceName -eq $Instruction.ServiceName -and $_.ServerName -eq $Service.ServerName }
                                 $ServiceString = "[BOService]::new('$($InstructionService.ServerName)','$($InstructionService.ServiceName)','$($InstructionService.State)','$($InstructionService.Status)',$(if ($InstructionService.ProcessId -eq '') {'$null'} else {$InstructionService.ProcessId}))"
@@ -398,29 +423,33 @@ try {
                             return $Service
                         }
                 
-                        [void]RestartServices([object[]]$CommandNames) {
+                        # Restart a group of services based on their command names if they are not both enabled and running, or if Force is true.
+                        [void]RestartServices([object[]]$CommandNames, [bool]$Force) {
                             $LogLoc = 'RestartServices'
                             $this.LogInfo($LogLoc, "Attempting to restart the following services: $($CommandNames -Join ', ')")
                             foreach ($CommandName in $CommandNames) {
                                 [BOService]$Service = $this.Services | Where-Object { $_.CommandName -eq $CommandName }
-                                if ($Service.State -ne 'Running' -or $Service.Status -ne 'Enabled') {
+                                if ($Service.State -ne 'Running' -or $Service.Status -ne 'Enabled' -or $Force) {
                                     $this.RestartService($Service)
                                 }
                             }
                         }
                 
-                        [void]RestartAllServices() {
+                        # Triggers a restart of all services. Only restarts enabled and running services if Force is true.
+                        [void]RestartAllServices([bool]$Force) {
                             $LogLoc = 'RestartAllServices'
                             $this.LogInfo($LogLoc, 'Triggering a restart of all services')
-                            $this.RestartServices($this.Services.CommandName)
+                            $this.RestartServices($this.Services.CommandName, $Force)
                         }
                 
-                        [void]RestartServices([string]$ComputerName) {
+                        # Triggers a restart of all services on a computer. Only restarts enabled and running services if Force is true.
+                        [void]RestartServices([string]$ComputerName, [bool]$Force) {
                             $LogLoc = 'RestartServices'
                             $this.LogDebug($LogLoc, "Triggering a restart of all services on host `"$ComputerName`"")
-                            $this.RestartServices(($this.Services | Where-Object { $_.ServerName -eq $ComputerName }).CommandName)
+                            $this.RestartServices(($this.Services | Where-Object { $_.ServerName -eq $ComputerName }).CommandName, $Force)
                         }
                 
+                        # Triggers an update of the services from the BOServer and returns the updated BOService.
                         [BOService]UpdateServices([BOService]$Service) {
                             $LogLoc = 'UpdateServices'
                             $this.LogDebug($LogLoc, "Triggering an update of services to refresh service `"$($Service.CommandName)`"")
@@ -429,6 +458,8 @@ try {
                             return $this.Services | Where-Object { $_.CommandName -like $CommandName }
                         }
                 
+                        # Triggers an update of the services from the BOServer. Parses the string information from the
+                        # command line into BOService objects
                         [void]UpdateServices() {
                             $LogLoc = 'UpdateServices'
                             $this.LogDebug($LogLoc, 'Updating services')
@@ -461,6 +492,7 @@ try {
                             $this.LogDebug($LogLoc, 'Update finished')
                         }
                 
+                        # Checks if all services are running and enabled. Returns services that are not running and enabled.
                         [BOService[]]ValidateServices() {
                             $LogLoc = 'ValidateServices'
                             $this.LogDebug($LogLoc, 'Started validating services')
@@ -469,10 +501,12 @@ try {
                             return $this.Services | Where-Object { $_.State -ne 'Running' -or $_.Status -ne 'Enabled' }
                         }
                 
+                        # Gets string representation of services from BOServer
                         [string[]]GetRawDetails() {
                             return $this.SendRawCommand('-Display')
                         }
                 
+                        # Sends a raw command to the command line with data. Takes care of authentication from BOInstance info.
                         [object]SendRawCommand([string]$Command, [string]$Data) {
                             $LogLoc = 'SendRawCommand'
                             $FullCommand = "$($this.ExeLocation) $Command $Data -Username $($this.Username) -Password CONFIDENTIAL -Authentication $($this.Authentication)"
@@ -480,10 +514,12 @@ try {
                             return & $this.ExeLocation $Command $Data -Username $this.Username -Password $this.Password -Authentication $this.Authentication
                         }
                 
+                        # Sends a raw command without data.
                         [object]SendRawCommand([string]$Command) {
                             return $this.SendRawCommand($Command, $null)
                         }
                 
+                        # Logs to both a file and to the command line if the LogExternal property of BOInstance is true
                         [void]Log([string]$From, [string]$Level, [string]$Message) {
                             if (!$(Test-Path $([BOInstance]::LogFolder))) {
                                 New-Item -Path $([BOInstance]::LogFolder) -ItemType Directory
@@ -495,30 +531,35 @@ try {
                             }
                         }
                 
+                        # Logs info as critical
                         [void]LogCritical([string]$From, [string]$Message) {
                             if ([int][LogLevels]$this.LogLevel -ge [int][LogLevels]'Critical') {
                                 $this.Log($From, 'Critical', $Message)
                             }
                         }
                 
+                        # Logs info as error
                         [void]LogError([string]$From, [string]$Message) {
                             if ([int][LogLevels]$this.LogLevel -ge [int][LogLevels]'Error') {
                                 $this.Log($From, 'Error', $Message)
                             }
                         }
                 
+                        # Logs info as info
                         [void]LogInfo([string]$From, [string]$Message) {
                             if ([int][LogLevels]$this.LogLevel -ge [int][LogLevels]'Info') {
                                 $this.Log($From, 'Info', $Message)
                             }
                         }
                 
+                        # Logs info as debug
                         [void]LogDebug([string]$From, [string]$Message) {
                             if ([int][LogLevels]$this.LogLevel -ge [int][LogLevels]'Debug') {
                                 $this.Log($From, 'Debug', $Message)
                             }
                         }
                 
+                        # Cleans logs older than 31 days
                         static [void]CleanLogs() {
                             $LogFiles = Get-ChildItem -Path ([BOInstance]::LogFolder) -ErrorAction SilentlyContinue
                             foreach ($LogFile in $LogFiles) {
@@ -530,6 +571,7 @@ try {
                         }
                     }
 
+                    # Starts BO windows services
                     function Start-BOServices {
                         param (
                             [string[]]$Services
@@ -548,7 +590,8 @@ try {
                             $Service | Restart-Service
                         }
                     }
-                
+
+                    #Gets name and status of BO windows services
                     function Get-BOServices {
                         return Get-Service 'Apache Tomcat for BI 4', "Server Intelligence Agent ($env:computername)" | Select-Object DisplayName, Status
                     }
@@ -652,7 +695,7 @@ try {
                     $Attempts = 0
                     Write-Host "[$(Get-Date)] Starting validation of BO services on server $Computer"
                     while ($Attempts -lt 3 -and ($BOServer.ValidateServices() | Where-Object { $_.ServerName -eq $env:COMPUTERNAME }).Count -gt 0) {
-                        $BOServer.RestartServices(@(($BOServer.ValidateServices() | Where-Object { $_.ServerName -eq $env:COMPUTERNAME }).CommandName))
+                        $BOServer.RestartServices(@(($BOServer.ValidateServices() | Where-Object { $_.ServerName -eq $env:COMPUTERNAME }).CommandName), $false)
                         $Attempts++
                         Write-Host "[$(Get-Date)] Attempts to start BO services on server ${$Computer}: $Attempts"
                     }
