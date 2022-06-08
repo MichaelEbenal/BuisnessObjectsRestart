@@ -325,9 +325,9 @@ try {
                             $this.UpdateServices()
                             
                             $Attempts = 0
-                            while (($this.Services | Where-Object { $_.State -like 'Starting' -or $_.State -like'Initializing' }).Count -gt 0 -and $Attempts -lt 24) {
+                            while (($this.Services | Where-Object { $_.State -in 'Starting', 'Initializing' }).Count -gt 0 -and $Attempts -lt 24) {
                                 $Attempts++
-                                $this.LogInfo($LogLoc, "Waiting for $(($this.Services | Where-Object { $_.State -eq 'Starting' -or $_.State -eq 'Initializing' }).Count) services to start")
+                                $this.LogInfo($LogLoc, "Waiting for $(($this.Services | Where-Object { $_.State -in 'Starting', 'Initializing' }).Count) services to start")
                                 
                                 Start-Sleep -Seconds 5
                                 $this.LogInfo($LogLoc, "Waited $($Attempts * 5) seconds for services to start")
@@ -339,9 +339,10 @@ try {
                         [BOService]WaitServiceStart([BOService]$Service) {
                             $LogLoc = 'WaitServiceStart'
                             $this.LogInfo($LogLoc, "Waiting for service `"$($Service.CommandName)`" to start. ")
-                            
+                            $Service = $this.UpdateServices($Service)
+
                             $Attempts = 0
-                            while (($Service.State -like 'Starting' -or $Service.State -like 'Initializing') -and $Attempts -lt 24) {
+                            while ($Service.State -in 'Starting','Initializing' -and $Attempts -lt 24) {
                                 $Attempts++
                                 
                                 Start-Sleep -Seconds 5
@@ -690,6 +691,7 @@ try {
                     )
 
                     # Waits until all services are started or 2 minutes, whichever comes first
+                    $BOServer.UpdateServices()
                     $BOServer.WaitServicesStart()
 
                     # Restart BO services that aren't running or enabled
