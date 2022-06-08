@@ -325,7 +325,7 @@ try {
                             $this.UpdateServices()
                             
                             $Attempts = 0
-                            while (($this.Services | Where-Object { $_.State -eq 'Starting' -or $_.State -eq 'Initializing' }).Count -gt 0 -and $Attempts -lt 24) {
+                            while (($this.Services | Where-Object { $_.State -like 'Starting' -or $_.State -like'Initializing' }).Count -gt 0 -and $Attempts -lt 24) {
                                 $Attempts++
                                 $this.LogInfo($LogLoc, "Waiting for $(($this.Services | Where-Object { $_.State -eq 'Starting' -or $_.State -eq 'Initializing' }).Count) services to start")
                                 
@@ -338,10 +338,10 @@ try {
                         # Wait for a service to enter the Running state. If service takes too long, continue.
                         [BOService]WaitServiceStart([BOService]$Service) {
                             $LogLoc = 'WaitServiceStart'
-                            $this.LogInfo($LogLoc, "Waiting for service `"$($Service.CommandName)`" to start")
+                            $this.LogInfo($LogLoc, "Waiting for service `"$($Service.CommandName)`" to start. ")
                             
                             $Attempts = 0
-                            while (($Service.State -eq 'Starting' -or $Service.State -eq 'Initializing') -and $Attempts -lt 24) {
+                            while (($Service.State -like 'Starting' -or $Service.State -like 'Initializing') -and $Attempts -lt 24) {
                                 $Attempts++
                                 
                                 Start-Sleep -Seconds 5
@@ -356,7 +356,7 @@ try {
                             $LogLoc = 'RestartService'
                             $this.LogInfo($LogLoc, "Beginning restart of service `"$($Service.CommandName)`"")
                             $this.LogInfo($LogLoc, "Status was `"$($Service.Status)`" and state was `"$($Service.State)`"")
-                            
+
                             if ($Service.ServiceName -in $this.SpecialRestartCases.ServiceName) {
                                 $this.LogInfo($LogLoc, "Special restart case possible for service `"$($Service.CommandName)`"")
                                 $SpecialService = $this.SpecialRestart($Service)
