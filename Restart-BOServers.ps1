@@ -355,7 +355,8 @@ try {
                         [void]RestartService([BOService]$Service) {
                             $LogLoc = 'RestartService'
                             $this.LogInfo($LogLoc, "Beginning restart of service `"$($Service.CommandName)`"")
-
+                            $this.LogInfo($LogLoc, "Status was `"$($Service.Status)`" and state was `"$($Service.State)`"")
+                            
                             if ($Service.ServiceName -in $this.SpecialRestartCases.ServiceName) {
                                 $this.LogInfo($LogLoc, "Special restart case possible for service `"$($Service.CommandName)`"")
                                 $SpecialService = $this.SpecialRestart($Service)
@@ -388,8 +389,8 @@ try {
 
                             $Service = $this.EnableService($Service)
                             
+                            $this.LogInfo($LogLoc, "Status was `"$($Service.Status)`" and state was `"$($Service.State)`"")
                             $this.LogInfo($LogLoc, "End of restart of service $($Service.CommandName)")
-                            $this.LogDebug($LogLoc, "Status was `"$($Service.Status)`" and state was `"$($Service.State)`"")
                         }
 
                         # Attempts to perform a special restart by checking the case, and if true, executing the instructions for that case.
